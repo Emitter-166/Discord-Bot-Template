@@ -1,34 +1,14 @@
-import { Client, IntentsBitField} from 'discord.js';
+import { Client, GuildMember, IntentsBitField, PartialGuildMember} from 'discord.js';
 import * as path from 'path';
-import * as fs from 'fs';
-import { Sequelize } from 'sequelize';
+import express from 'express';
+
+const app = express();
 
 require('dotenv').config({
     path: path.join(__dirname, ".env")
 })
 
 
-export const sequelize = new Sequelize({
-    dialect: 'sqlite',
-    storage: 'example.db',
-    logging: false
-})
-
-
-const path_to_models = path.join(__dirname, 'database', 'models');
-
-fs.readdirSync(path_to_models)
-    .forEach(modelFile => {
-        const model = require(path.join(path_to_models, modelFile));
-        model.model(sequelize);
-    })
-
-
-
-
-sequelize.sync({alter: true}).then(sequelize => {
-    client.login(process.env._TOKEN);
-})
 
 
 const F = IntentsBitField.Flags;
@@ -36,11 +16,33 @@ const client = new Client({
     intents: [F.Guilds, F.GuildMessages, F.GuildMembers, F.MessageContent]
 })
 
-
-client.once('ready', (client) => {
-    console.log("ready");
+app.get('/', async (req, res) => {
+    res.status(200).send({count: amount, Headers: {"Access-Control-Allow-Origin": "*"}});
 })
 
+let amount = 0;
+
+client.on('guildMemberUpdate', async (old , newMember) => {
+    const nick_old = old.nickname?.toLocaleLowerCase();
+    const nick_new = newMember.nickname?.toLocaleLowerCase();
+    
+    if(nick_old?.startsWith('mount') && !(nick_new?.startsWith('mount'))) amount--;
+    if(nick_new?.startsWith('mount') && !(nick_old?.startsWith('mount'))) amount++;
+})
+
+
+client.once('ready', async (client) => {
+    console.log("ready");
+
+    const guild = await client.guilds.fetch("859736561830592522");
+
+    const members = await guild.members.fetch();
+
+    amount += members.filter(member => member.nickname?.toLocaleLowerCase().startsWith('mount')).size
+})
+
+client.login(process.env._TOKEN)
+app.listen('6584');
 
 
 
